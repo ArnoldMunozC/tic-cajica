@@ -23,4 +23,6 @@ public interface UserService {
     String generateUserCode();
 
     User findByEmail(String email);
+
+
 }

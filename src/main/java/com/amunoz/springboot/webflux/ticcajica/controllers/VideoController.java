@@ -32,16 +32,17 @@ public class VideoController {
         this.videoServiceImpl = videoServiceImpl;
     }
 
-    private final String videoDirectory = "./Users/arnmunoz/aprendizaje/videos"; // Cambia esto a la ruta de tu carpeta
+    private final String videoDirectory = "./Users/arnmunoz/aprendizaje/videos";
 
     @PostMapping(value = "/create-video", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Void> createCourse(
             @RequestPart("video") List<Video> videos,
-            @RequestParam("file") List<MultipartFile> files) {
+            @RequestParam("file") List<MultipartFile> files,
+            @RequestParam("cursoId") String cursoId) {
 
         try {
             // Define la carpeta donde se almacenarán los vídeos
-            Path root = Paths.get("/Users/arnmunoz/NuevoDocuments/videos");
+            Path root = Paths.get("C:\\Users\\Arnold Mauricio\\Documents\\videos");
             if (!Files.exists(root)) {
                 Files.createDirectories(root); // Si el directorio no existe, crearlo
             }
@@ -69,6 +70,7 @@ public class VideoController {
                 currentCourse.setVideoPath(fileStorageLocation.toString());
 
                 // Guarda la entidad en la base de datos
+                currentCourse.setCursoId(cursoId);
                 videoService.save(currentCourse);
             }
 
@@ -156,7 +158,7 @@ public class VideoController {
                 }
 
                 // Definir la carpeta donde se almacenará el nuevo vídeo
-                Path root = Paths.get("/Users/arnmunoz/NuevoDocuments/videos");
+                Path root = Paths.get("C:\\Users\\Arnold Mauricio\\Documents\\videos");
                 if (!Files.exists(root)) {
                     Files.createDirectories(root); // Crear el directorio si no existe
                 }

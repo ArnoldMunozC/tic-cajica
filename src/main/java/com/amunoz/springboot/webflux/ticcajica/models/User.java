@@ -1,13 +1,13 @@
 package com.amunoz.springboot.webflux.ticcajica.models;
 
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
-import org.hibernate.annotations.GenericGenerator;
 
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.UUID;
+import java.util.List;
 
 @Data
 @Entity
@@ -18,11 +18,12 @@ public class User {
     @GeneratedValue(generator = "UUID")
 //    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
     @Column(name = "id", updatable = false, nullable = false)
-    private UUID id;
+    private Integer id;
 
 
     private String firstName;
     private String lastName;
+    private String username;
 
     @Column(unique = true)
     private String email;
@@ -43,7 +44,7 @@ public class User {
 
 
     @PrePersist
-    public void prePersist(){
+    public void prePersist() {
         createAt = new Date();
     }
 
