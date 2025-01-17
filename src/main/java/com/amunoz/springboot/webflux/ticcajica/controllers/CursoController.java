@@ -3,7 +3,9 @@ package com.amunoz.springboot.webflux.ticcajica.controllers;
 import com.amunoz.springboot.webflux.ticcajica.constants.CursoConstants;
 import com.amunoz.springboot.webflux.ticcajica.domain.ResponseDTO;
 import com.amunoz.springboot.webflux.ticcajica.models.Curso;
+import com.amunoz.springboot.webflux.ticcajica.models.Video;
 import com.amunoz.springboot.webflux.ticcajica.services.CursoService;
+import com.amunoz.springboot.webflux.ticcajica.services.VideoService;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
@@ -23,10 +25,12 @@ import java.util.UUID;
 public class CursoController {
 
     private final CursoService cursoService;
+    private final VideoService videoService;
 
 
-    public CursoController(CursoService cursoService) {
+    public CursoController(CursoService cursoService, VideoService videoService) {
         this.cursoService = cursoService;
+        this.videoService = videoService;
     }
 
 
@@ -108,6 +112,9 @@ public class CursoController {
         if (curso == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
+        List<Video> videos = videoService.findByCursoId(id);
+        curso.setVideos(videos);
+
         return ResponseEntity.ok(curso);
     }
 

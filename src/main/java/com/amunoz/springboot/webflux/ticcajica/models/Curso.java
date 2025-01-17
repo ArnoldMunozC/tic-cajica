@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,5 +30,8 @@ public class Curso {
     public Integer getImagenHashCode() {
         return (this.imagen != null) ? this.imagen.hashCode(): null;
     }
+
+    @OneToMany
+    private List<Video> videos;
 
 }

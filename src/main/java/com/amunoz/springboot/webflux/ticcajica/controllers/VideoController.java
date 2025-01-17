@@ -1,10 +1,10 @@
 package com.amunoz.springboot.webflux.ticcajica.controllers;
 
 import com.amunoz.springboot.webflux.ticcajica.models.Video;
-import com.amunoz.springboot.webflux.ticcajica.services.VideoService;
+import com.amunoz.springboot.webflux.ticcajica.services.CursoService;
 import com.amunoz.springboot.webflux.ticcajica.services.impl.VideoServiceImpl;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.http.HttpHeaders;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -12,33 +12,36 @@ import org.springframework.web.bind.annotation.*;
 
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
+@CrossOrigin(origins = "http://localhost:4200")
 @RestController
 @RequestMapping("/api/v1/video")
-@CrossOrigin(origins = "http://localhost:4200")
 public class VideoController {
 
-    private final VideoService videoService;
+    //private final VideoService videoService;
     private final VideoServiceImpl videoServiceImpl;
+    private final CursoService cursoService;
 
-    public VideoController(VideoService videoService, VideoServiceImpl videoServiceImpl) {
-        this.videoService = videoService;
+    public VideoController( VideoServiceImpl videoServiceImpl, CursoService cursoService) {
+        //this.videoService = videoService;
         this.videoServiceImpl = videoServiceImpl;
+        this.cursoService = cursoService;
     }
 
     private final String videoDirectory = "./Users/arnmunoz/aprendizaje/videos";
 
     @PostMapping(value = "/create-video", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Void> createCourse(
+    public ResponseEntity<Void> uploadVideos(
             @RequestPart("video") List<Video> videos,
             @RequestParam("file") List<MultipartFile> files,
-            @RequestParam("cursoId") String cursoId) {
+            @RequestParam("cursoId") UUID cursoId) {
 
         try {
             // Define la carpeta donde se almacenarán los vídeos
@@ -71,7 +74,7 @@ public class VideoController {
 
                 // Guarda la entidad en la base de datos
                 currentCourse.setCursoId(cursoId);
-                videoService.save(currentCourse);
+                videoServiceImpl.save(currentCourse);
             }
 
             return new ResponseEntity<>(HttpStatus.CREATED);
@@ -83,15 +86,15 @@ public class VideoController {
     }
 
 
-
     /**
      * Obtiene todos los cursos
+     *
      * @return Lista de cursos
      */
 
     @GetMapping("/get-video/{id}")
     public Video getCourse(@PathVariable Long id) {
-        Video video = videoService.findById(id);
+        Video video = videoServiceImpl.findById(id);
         return video;
     }
 
@@ -99,9 +102,9 @@ public class VideoController {
     @DeleteMapping("/delete-video/{id}")
     public ResponseEntity<Void> deleteVideo(@PathVariable Long id) {
         // Buscar el curso por su ID
-        Video video = videoService.findById(id);
+        Video video = videoServiceImpl.findById(id);
 
-        if (video!= null) {
+        if (video != null) {
             try {
                 // Obtener la ruta del video
                 String videoPath = video.getVideoPath();
@@ -115,7 +118,7 @@ public class VideoController {
                 }
 
                 // Eliminar el curso de la base de datos
-                videoService.delete(id);
+                videoServiceImpl.delete(id);
 
                 return new ResponseEntity<>(HttpStatus.OK); // Retornar 200 si fue exitoso
             } catch (IOException e) {
@@ -126,7 +129,6 @@ public class VideoController {
 
         return new ResponseEntity<>(HttpStatus.NO_CONTENT); // Retornar 204 si no se encuentra el curso
     }
-
 
 
     @PutMapping(value = "/update-video", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -181,7 +183,7 @@ public class VideoController {
             // Puedes agregar más campos que quieras actualizar aquí
 
             // Guardar la actualización del curso en la base de datos
-            videoService.update(currentCourse, currentCourse.getId());
+            videoServiceImpl.update(currentCourse, currentCourse.getId());
 
             return new ResponseEntity<>(HttpStatus.OK); // Retornar 200 si la actualización fue exitosa
 
@@ -192,18 +194,111 @@ public class VideoController {
     }
 
 
-    @GetMapping("/videos/{filename}")
-    public ResponseEntity<FileSystemResource> getVideo(@PathVariable String filename) {
-        File videoFile = new File(videoDirectory, filename);
-        if (!videoFile.exists()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+    // retorna el video
+    @GetMapping("/get-video-by-id/{id}")
+    public void getVideoById(@PathVariable Long id, HttpServletRequest request, HttpServletResponse response) {
+        // Buscar el video en la base de datos por su ID
+        Video video = videoServiceImpl.findById(id);
+
+        if (video == null) {
+            // Retornar 404 si el video no existe
+            response.setStatus(HttpStatus.NOT_FOUND.value());
+            return;
         }
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("Content-Type", "video/mp4");
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(new FileSystemResource(videoFile));
+        // Obtener la ruta del video desde la base de datos
+        String videoPath = video.getVideoPath();
+
+        // Verificar si el archivo de video existe en el sistema de archivos
+        File videoFile = new File(videoPath);
+        if (!videoFile.exists()) {
+            // Retornar 404 si el archivo no existe
+            response.setStatus(HttpStatus.NOT_FOUND.value());
+            return;
+        }
+
+        // Manejar los rangos solicitados por el cliente
+        try (RandomAccessFile randomFile = new RandomAccessFile(videoFile, "r")) {
+            // Obtener la longitud total del archivo
+            long fileLength = randomFile.length();
+            String range = request.getHeader("Range");
+
+            long start = 0;
+            long end = fileLength - 1;
+
+            // Validar si el cliente solicitó un rango específico
+            if (range != null && range.startsWith("bytes=")) {
+                String[] ranges = range.substring(6).split("-");
+                try {
+                    start = Long.parseLong(ranges[0]); // Inicio del rango
+                    if (ranges.length > 1) {
+                        end = Long.parseLong(ranges[1]); // Fin del rango (opcional)
+                    }
+                } catch (NumberFormatException e) {
+                    response.setStatus(HttpStatus.BAD_REQUEST.value());
+                    return;
+                }
+            }
+
+            // Validar que los rangos sean consistentes
+            if (start > end || start >= fileLength) {
+                response.setStatus(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE.value());
+                response.setHeader("Content-Range", "bytes */" + fileLength);
+                return;
+            }
+
+            // Calcular la longitud del contenido solicitado
+            long contentLength = end - start + 1;
+
+            // Establecer los encabezados de la respuesta
+            response.setStatus(range != null ? HttpStatus.PARTIAL_CONTENT.value() : HttpStatus.OK.value());
+            response.setContentType("video/mp4");
+            response.setHeader("Accept-Ranges", "bytes");
+            response.setHeader("Content-Length", String.valueOf(contentLength));
+            response.setHeader("Content-Range", "bytes " + start + "-" + end + "/" + fileLength);
+
+            // Enviar el contenido del archivo solicitado
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            randomFile.seek(start); // Mover a la posición inicial en el archivo
+
+            try (var outputStream = response.getOutputStream()) {
+                while ((bytesRead = randomFile.read(buffer)) != -1) {
+                    if (start + bytesRead - 1 > end) {
+                        outputStream.write(buffer, 0, (int) (end - start + 1));
+                        break;
+                    }
+                    outputStream.write(buffer, 0, bytesRead);
+                    start += bytesRead;
+                }
+                outputStream.flush();
+            }
+        } catch (IOException e) {
+            System.err.println("Error al procesar el video: " + e.getMessage());
+            response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+        }
+    }
+
+    @GetMapping("/get-videos-by-course/{cursoId}")
+    public ResponseEntity<List<Video>> getVideosByCourseId(@PathVariable UUID cursoId) {
+        try {
+            // Obtener todos los videos asociados al curso usando el cursoId
+            List<Video> videos = (videoServiceImpl.findByCursoId(cursoId))
+                    .stream()
+                    .filter(video -> cursoId.equals(video.getCursoId()))
+                    .collect(Collectors.toList());
+
+            if (videos.isEmpty()) {
+                // Retornar 404 si no se encuentran videos
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            // Retornar los videos encontrados
+            return new ResponseEntity<>(videos, HttpStatus.OK);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
 

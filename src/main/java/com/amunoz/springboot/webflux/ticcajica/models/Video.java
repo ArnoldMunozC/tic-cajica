@@ -6,6 +6,7 @@ import lombok.Data;
 
 import java.util.UUID;
 
+
 @Data
 @Table(name = "videos")
 @Entity
@@ -22,9 +23,7 @@ public class Video {
     private String videoPath;
 
     @Column(name = "curso_id")
-    private String cursoId;
-
-
+    private UUID cursoId;
 
 
 }
