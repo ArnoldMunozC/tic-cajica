@@ -1,0 +1,33 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Adicionar Video al Curso</title>
+</head>
+<body>
+<h1>Adicionar Video al Curso</h1>
+<form action="/api/v1/video/create-video" method="post" enctype="multipart/form-data">
+    <!-- Campo para el ID del curso -->
+    <div style="display: none;">
+        <label for="cursoId">ID del Curso:</label>
+        <input type="text" id="cursoId" name="cursoId" th:value="${cursoId}" required>
+    </div>
+
+    <!-- Campo para el título del video -->
+    <div>
+        <label for="title">Título del Video:</label>
+        <input type="text" id="title" name="title" placeholder="Escribe el título del video" required>
+    </div>
+
+    <!-- Campo para cargar el archivo de video -->
+    <div>
+        <label for="file">Archivo de Video:</label>
+        <input type="file" id="file" name="file" accept="video/*" required>
+    </div>
+
+    <!-- Botón para enviar el formulario -->
+    <div>
+        <button type="submit">Adicionar Video</button>
+    </div>
+</form>
+</body>
+</html>

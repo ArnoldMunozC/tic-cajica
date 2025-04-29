@@ -1,13 +1,16 @@
 package com.amunoz.springboot.webflux.ticcajica.controllers;
 
+import com.amunoz.springboot.webflux.ticcajica.models.Curso;
 import com.amunoz.springboot.webflux.ticcajica.models.Video;
-import com.amunoz.springboot.webflux.ticcajica.services.CursoService;
+import com.amunoz.springboot.webflux.ticcajica.services.impl.CursoServiceImpl;
 import com.amunoz.springboot.webflux.ticcajica.services.impl.VideoServiceImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import org.springframework.web.multipart.MultipartFile;
@@ -20,82 +23,76 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@CrossOrigin(origins = "http://localhost:4200")
-@RestController
+
+@Controller
 @RequestMapping("/api/v1/video")
 public class VideoController {
 
-    //private final VideoService videoService;
     private final VideoServiceImpl videoServiceImpl;
-    private final CursoService cursoService;
+    private final CursoServiceImpl cursoServiceImpl;
 
-    public VideoController( VideoServiceImpl videoServiceImpl, CursoService cursoService) {
-        //this.videoService = videoService;
+    public VideoController(VideoServiceImpl videoServiceImpl, CursoServiceImpl cursoServiceImpl) {
         this.videoServiceImpl = videoServiceImpl;
-        this.cursoService = cursoService;
+        this.cursoServiceImpl = cursoServiceImpl;
     }
 
-    private final String videoDirectory = "./Users/arnmunoz/aprendizaje/videos";
 
+    // Agregar video al curso
     @PostMapping(value = "/create-video", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Void> uploadVideos(
-            @RequestPart("video") List<Video> videos,
-            @RequestParam("file") List<MultipartFile> files,
-            @RequestParam("cursoId") UUID cursoId) {
-
+    public String uploadSingleVideo(
+            @RequestParam("title") String title,      // El título del video
+            @RequestPart("file") MultipartFile file, // El archivo de video
+            @RequestParam("cursoId") UUID cursoId,    // ID del curso
+            Model model) {
         try {
-            // Define la carpeta donde se almacenarán los vídeos
-            Path root = Paths.get("C:\\Users\\Arnold Mauricio\\Documents\\videos");
-            if (!Files.exists(root)) {
-                Files.createDirectories(root); // Si el directorio no existe, crearlo
+            // Validar que se haya proporcionado un archivo válido
+            if (file.isEmpty()) {
+                model.addAttribute("error", "El archivo está vacío. Por favor, selecciona uno válido.");
+                return "error"; // Retornar a una plantilla de error
             }
 
-            // Verifica que la cantidad de archivos y cursos coincida
-            if (videos.size() != files.size()) {
-                return new ResponseEntity<>(HttpStatus.BAD_REQUEST); // Mismo número de archivos y cursos
+            // Nombre del archivo
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename == null || originalFilename.isEmpty()) {
+                model.addAttribute("error", "El nombre del archivo es inválido.");
+                return "error"; // Retornar a una plantilla de error
             }
 
-            // Itera sobre la lista de cursos y archivos
-            for (int i = 0; i < videos.size(); i++) {
-                Video currentCourse = videos.get(i);
-                MultipartFile currentFile = files.get(i);
+            // Guardar el archivo en almacenamiento local
+            Path filePath = Paths.get("C:/Users/Arnold Mauricio/Documents/videos", originalFilename);
+            Files.write(filePath, file.getBytes());
 
-                // Nombre del archivo original
-                String originalFilename = currentFile.getOriginalFilename();
+            // Crear el objeto Video y guardar en base de datos
+            Video video = new Video();
+            video.setTitle(title);
+            video.setVideoPath(filePath.toString());
+            video.setCursoId(cursoId);
+            videoServiceImpl.save(video);
 
-                // Crear la ruta completa del archivo
-                Path fileStorageLocation = root.resolve(originalFilename);
-
-                // Almacena el archivo en el sistema de archivos local
-                Files.write(fileStorageLocation, currentFile.getBytes());
-
-                // Asigna la ruta del video al curso
-                currentCourse.setVideoPath(fileStorageLocation.toString());
-
-                // Guarda la entidad en la base de datos
-                currentCourse.setCursoId(cursoId);
-                videoServiceImpl.save(currentCourse);
-            }
-
-            return new ResponseEntity<>(HttpStatus.CREATED);
+            return "redirect:/api/v1/curso/byId/" + cursoId;
 
         } catch (IOException e) {
             e.printStackTrace();
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+            model.addAttribute("error", "Ocurrió un error al guardar el archivo. Inténtalo de nuevo.");
+            return "error"; // Retornar a una plantilla de error
         }
     }
 
 
-    /**
-     * Obtiene todos los cursos
-     *
-     * @return Lista de cursos
-     */
+    // formulario para agregar video
+    @GetMapping("/form-add-videos/{id}")
+    public String showFormCreateVideo(@PathVariable UUID id, Model model) {
+        model.addAttribute("cursoId", id);
+        return "form-add-videos";
+    }
 
-    @GetMapping("/get-video/{id}")
-    public Video getCourse(@PathVariable Long id) {
-        Video video = videoServiceImpl.findById(id);
-        return video;
+    // formulario para actualizar video
+    @GetMapping("/form-update-video/{idVideo}/cursoId/{idCurso}")
+    public String showFormUpdateVideo(@PathVariable Long idVideo, @PathVariable UUID idCurso, Model model) {
+        model.addAttribute("idVideo", idVideo);
+        model.addAttribute("idCurso", idCurso);
+        model.addAttribute("texto", "update Video");
+        return "form-update-video";
     }
 
 
@@ -131,21 +128,25 @@ public class VideoController {
     }
 
 
-    @PutMapping(value = "/update-video", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Void> updateCourse(
-            @RequestPart("video") Video video,
-            @RequestParam("file") MultipartFile file) {
+    @PostMapping(value = "/update-video", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public String updateCourse(
+            @RequestPart("title") String title,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("videoId") Long videoId,
+            @RequestParam("idCurso") UUID idCurso,
+            Model model) {
 
         try {
             // Obtener el ID del curso desde el cuerpo (objeto course)
-            Long id = video.getId();
+            UUID cursoId = idCurso;
 
             // Buscar el curso actual por su ID
-            Video currentCourse = videoServiceImpl.findById(id);
+            Video currentCourse = videoServiceImpl.findById(videoId);
 
             // Si el curso no existe, retornar 404
             if (currentCourse == null) {
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+                model.addAttribute("error", "No existe el curso!");
+                return "error";
             }
 
             // Si se sube un archivo nuevo, se actualiza
@@ -179,17 +180,16 @@ public class VideoController {
             }
 
             // Actualizar los otros campos del curso (si es necesario)
-            currentCourse.setTitle(video.getTitle());
-            // Puedes agregar más campos que quieras actualizar aquí
+            currentCourse.setTitle(title);
 
             // Guardar la actualización del curso en la base de datos
             videoServiceImpl.update(currentCourse, currentCourse.getId());
 
-            return new ResponseEntity<>(HttpStatus.OK); // Retornar 200 si la actualización fue exitosa
-
+            return "redirect:/api/v1/curso/byId/" + cursoId;
         } catch (IOException e) {
             e.printStackTrace();
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+            model.addAttribute("error", "Ocurrio un error :" + e.getMessage());
+            return "error";
         }
     }
 
@@ -277,6 +277,38 @@ public class VideoController {
             System.err.println("Error al procesar el video: " + e.getMessage());
             response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
         }
+    }
+
+    // devuelve los videos del curso
+    @GetMapping("/get-video/{id}/cursoId/{cursoId}")
+    public String getCourse2(@PathVariable Long id, @PathVariable UUID cursoId, Model model) {
+        // Obtenemos el objeto Video desde el servicio
+        try {
+            Video video = videoServiceImpl.findById(id);
+            if (video == null) {
+                throw new RuntimeException("El video con id " + id + " no fue encontrado.");
+            }
+
+            Curso curso = cursoServiceImpl.findById(cursoId);
+
+            // Verificar si cursoId ya es un UUID válido
+            UUID uuid = UUID.fromString(cursoId.toString());
+            List<Video> videos = videoServiceImpl.findByCursoId(uuid);
+            curso.setVideos(videos);
+            model.addAttribute("curso", curso);
+            if (videos == null || videos.isEmpty()) {
+                throw new RuntimeException("No hay videos asociados al curso con ID " + cursoId);
+            }
+            // Extraer el nombre del archivo del video
+            String videoFileName = new File(video.getVideoPath()).getName(); // ejemplo: "video1.mp4"
+            model.addAttribute("videoPath", "/videos/" + videoFileName); // Ruta accesible desde el navegador
+            model.addAttribute("videos", videos);
+            model.addAttribute("curso", curso);
+
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("El cursoId proporcionado no es un UUID válido: " + cursoId);
+        }
+        return "detalleCurso";
     }
 
     @GetMapping("/get-videos-by-course/{cursoId}")

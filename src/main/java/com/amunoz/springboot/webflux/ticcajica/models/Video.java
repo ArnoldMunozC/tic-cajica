@@ -2,12 +2,17 @@ package com.amunoz.springboot.webflux.ticcajica.models;
 
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
+import org.hibernate.proxy.HibernateProxy;
 
+import java.util.Objects;
 import java.util.UUID;
 
 
-@Data
+@Getter
+@Setter
+@ToString
+@RequiredArgsConstructor
 @Table(name = "videos")
 @Entity
 public class Video {

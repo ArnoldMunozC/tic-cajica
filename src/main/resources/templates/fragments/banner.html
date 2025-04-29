@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+<div th:fragment="banner">
+    <div class="row bg-primary text-white">
+        <img th:src="@{/logoCund.png}" alt="Banner">
+        <div>
+            <ul>
+                <li>
+                    <a th:href="@{'/api/v1/curso/all-cursos'}">
+                        <p>Cursos</p>
+                    </a>
+                </li>
+            </ul>
+            <ul>
+                <li>
+                    <a th:href="@{'/api/v1/curso/form-create-curso'}">
+                        <p>Crear Curso</p>
+                    </a>
+                </li>
+            </ul>
+            <ul>
+                <li>Home</li>
+            </ul>
+            <ul>
+                <li>Home</li>
+            </ul>
+        </div>
+    </div>
+</div>
+</body>
+</html>

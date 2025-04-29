@@ -11,6 +11,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,8 +21,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
-@CrossOrigin({"http://localhost:4200"})
-@RestController
+@Controller
 @RequestMapping("/api/v1/curso")
 public class CursoController {
 
@@ -52,24 +53,32 @@ public class CursoController {
     }*/
 
     @PostMapping("/create-curso")
-    public ResponseEntity<ResponseDTO> createCurso(Curso curso, @RequestParam MultipartFile archivo) throws IOException {
+    public String createCurso(Curso curso, @RequestParam MultipartFile archivo) throws IOException {
 
         if (!archivo.isEmpty()) {
             curso.setImagen(archivo.getBytes());
         }
 
         cursoService.save(curso);
-        return ResponseEntity.status(HttpStatus.CREATED).body(new ResponseDTO(CursoConstants.STATUS_201, CursoConstants.MESSAGE_201));
+        return "redirect:/api/v1/curso/all-cursos";
+
 
     }
 
+    @GetMapping("/form-create-curso")
+    public String showFormCreateCurso() {
+        return "form-create-curso";
+    }
+
     @GetMapping("/all-cursos")
-    public ResponseEntity<List<Curso>> getAllCursos() {
+    public String getAllCursos(Model model) {
         List<Curso> cursos = cursoService.findAll();
         if (cursos.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            model.addAttribute("mensaje", "No hay cursos disponibles");
+        } else {
+            model.addAttribute("cursos", cursos);
         }
-        return ResponseEntity.ok(cursos);
+        return "cursos"; // Nombre de la vista (por ejemplo, cursos.html en templates)
     }
 
     @PostMapping("/find-curso/{nombre}")
@@ -106,26 +115,43 @@ public class CursoController {
 
     }
 
+    // muestra la informacion del curso incluyebdo los videos
     @GetMapping("/byId/{id}")
-    public ResponseEntity<Curso> getCursoById(@PathVariable UUID id) {
-        Curso curso = cursoService.findById(id);
-        if (curso == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-        }
-        List<Video> videos = videoService.findByCursoId(id);
-        curso.setVideos(videos);
+    public String getCursoById(@PathVariable UUID id, Model model) {
+        try {
+            Curso curso = cursoService.findById(id);
 
-        return ResponseEntity.ok(curso);
+            if (curso == null) {
+                model.addAttribute("error", "Curso no encontrado");
+                return "error"; // Nombre del template para errores personalizados
+            }
+
+            List<Video> videos = videoService.findByCursoId(id);
+            curso.setVideos(videos);
+            model.addAttribute("curso", curso);
+            model.addAttribute("videos", videos);
+
+            return "detalleCurso"; // Nombre de la plantilla de Thymeleaf
+        } catch (Exception e) {
+            model.addAttribute("error", "Ocurrió un error inesperado");
+            return "error"; // Nombre del template personalizado para cualquier error
+        }
     }
 
-    @GetMapping("/upload/img/{id}")
+    @GetMapping("upload/img/{id}")
     public ResponseEntity<?> verImagen(@PathVariable UUID id) {
         Curso curso = cursoService.findById(id);
         if (curso == null || curso.getImagen() == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Imagen no encontrada");
         }
         Resource imagen = new ByteArrayResource(curso.getImagen());
-        return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(imagen);
+
+        // Detectar tipo de archivo, asumo que usas JPEG aquí
+        MediaType mediaType = MediaType.IMAGE_JPEG;
+
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .body(imagen);
     }
 
 }

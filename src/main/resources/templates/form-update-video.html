@@ -1,0 +1,37 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Actualizar Video</title>
+</head>
+<body>
+<h1>Actualizar Video</h1>
+<form action="/api/v1/video/update-video" method="post" enctype="multipart/form-data">
+    <!-- Campo para el objeto Video -->
+    <div style="display: none;">
+        <label for="idCurso">ID del Curso:</label>
+        <input type="text" id="idCurso" name="idCurso" th:value="${idCurso}" required>
+    </div>
+    <div style="display: none;">
+        <label for="idVideoFormulario">ID del Video:</label>
+        <input type="text" id="idVideoFormulario" name="videoId" th:value="${idVideo}" required>
+    </div>
+
+    <!-- Campo para el título del video -->
+    <div>
+        <label for="title">Título del Video:</label>
+        <input type="text" id="title" name="title" placeholder="Escribe el título del video" required>
+    </div>
+
+    <!-- Campo para el archivo del video -->
+    <div>
+        <label for="file">Archivo de Video:</label>
+        <input type="file" id="file" name="file" accept="video/*" required>
+    </div>
+
+    <!-- Botón para enviar el formulario -->
+    <div>
+        <button type="submit">Actualizar Video</button>
+    </div>
+</form>
+</body>
+</html>

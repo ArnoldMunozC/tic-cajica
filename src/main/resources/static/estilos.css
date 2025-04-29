@@ -1,0 +1,17 @@
+/*.curso-contenido-pequeno {*/
+/*    max-width: 300px;*/
+/*    width: auto; !* Se ajusta automáticamente al contenido, si lo deseas *!*/
+/*}*/
+
+.btn.btn-custom {
+    background-color: rgba(141, 128, 141, 0.26) !important; /* Color de fondo más claro */
+    color: #333 !important; /* Color del texto */
+    border: none !important; /* Sin bordes */
+    border-radius: 5px !important; /* Bordes redondeados */
+}
+
+.btn-custom:hover {
+    background-color: #e56363; /* Color al pasar el cursor */
+    color: #4b95e5; /* Color del texto al hacer hover */
+    text-decoration: none; /* Elimina subrayado si se hereda */
+}
